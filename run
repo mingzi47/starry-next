@@ -1,0 +1,28 @@
+#!/usr/bin/sh
+set -e
+
+# arch=$1
+# app_name=$2
+# ext=$3
+#
+# echo -e "\033[31m make ARCH=$arch AX_TESTCASE=$app_name user_apps \n\033[0m"
+# make ARCH=$arch AX_TESTCASE=$app_name user_apps
+# echo -e "\033[31m make ARCH=$arch defconfig \n\033[0m"
+# make ARCH=$arch defconfig
+# echo -e "\033[31m make ARCH=$arch LOG=debug AX_TESTCASE=$app_name BLK=y NET=y $ext ACCEL=n run\n\033[0m"
+# make ARCH=$arch LOG=info AX_TESTCASE=$app_name BLK=y NET=y $ext ACCEL=n run
+tests=(
+    "aarch64"
+    "riscv64"
+    "loongarch64"
+    "x86_64"
+)
+
+
+for test in "${tests[@]}"; do
+    echo -e "\033[31m $test \033[0m"
+
+    make ARCH=$test defconfig
+    ARCH=$test ./scripts/oscomp_test.sh
+    sleep 1m
+done
