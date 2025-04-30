@@ -132,6 +132,9 @@ impl FileLike for Pipe {
                 buf[read_size] = ring_buffer.read_byte();
                 read_size += 1;
             }
+            // linux 中的 read 并不会一直读到 max_len
+            debug!("read size = {}", read_size);
+            return Ok(read_size);
         }
     }
 

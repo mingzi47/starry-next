@@ -66,6 +66,11 @@ pub unsafe fn sys_writev(fd: c_int, iov: *const ctypes::iovec, iocnt: c_int) -> 
         let iovs = unsafe { core::slice::from_raw_parts(iov, iocnt as usize) };
         let mut ret = 0;
         for iov in iovs.iter() {
+            // linux 中的iovs中也可以存在 nullptr
+            if iov.iov_base.is_null() {
+                info!("null ptr : iov base = {:#p}, iov_len = {}", iov.iov_base, iov.iov_len);
+                continue;
+            }
             info!("iov base = {:#p}, iov_len = {}", iov.iov_base, iov.iov_len);
             let result = write_impl(fd, iov.iov_base, iov.iov_len)?;
             ret += result;
