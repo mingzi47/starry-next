@@ -1,6 +1,6 @@
 use core::ffi::c_void;
 
-use axerrno::LinuxResult;
+use axerrno::{LinuxError, LinuxResult};
 
 use crate::ptr::{UserConstPtr, UserPtr};
 
@@ -22,4 +22,18 @@ pub fn sys_rt_sigaction(
 ) -> LinuxResult<isize> {
     warn!("sys_rt_sigaction: not implemented");
     Ok(0)
+}
+
+pub fn sys_rt_sigtimedwait (
+    _set: UserConstPtr<c_void>,
+    _info: UserPtr<c_void>,
+    _timeout: UserConstPtr<c_void>,
+) -> LinuxResult<isize> {
+    warn!("sys_rt_sigtimedwait: not implemented");
+    Ok(0)
+}
+
+pub fn sys_kill(_pid: usize, _sig: usize) -> LinuxResult<isize> {
+    axtask::exit(0);
+    Err(LinuxError::ENOSYS)
 }

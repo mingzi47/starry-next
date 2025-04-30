@@ -3,4 +3,4 @@ set -e
 
 make clean 
 
-make oscomp_run ARCH=riscv64 BLK=y NET=y FEATURES=fp_simd,lwext4_rs LOG=debug
+make oscomp_run ARCH=riscv64 BLK=y NET=y FEATURES=fp_simd,lwext4_rs $1
