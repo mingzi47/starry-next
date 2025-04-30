@@ -1,7 +1,7 @@
-use core::ffi::{c_char, c_void};
+use core::{ffi::{c_char, c_void}, usize};
 
 use alloc::string::ToString;
-use arceos_posix_api::AT_FDCWD;
+use arceos_posix_api::{ctypes::off_t, AT_FDCWD};
 use axerrno::{AxError, LinuxError, LinuxResult};
 use macro_rules_attribute::apply;
 
@@ -295,4 +295,8 @@ pub fn sys_unlinkat(dir_fd: isize, path: UserConstPtr<c_char>, flags: usize) -> 
 
 pub fn sys_getcwd(buf: UserPtr<c_char>, size: usize) -> LinuxResult<isize> {
     Ok(arceos_posix_api::sys_getcwd(buf.get_as_null_terminated()?.as_ptr() as _, size) as _)
+}
+
+pub fn sys_lseek(fd: i32, offset: usize, whence: i32) -> LinuxResult<isize> {
+    Ok(arceos_posix_api::sys_lseek(fd, offset as _, whence) as _)
 }
