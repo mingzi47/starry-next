@@ -9,9 +9,11 @@ use axhal::{
     paging::{MappingFlags, PageSize},
 };
 use axmm::{AddrSpace, kernel_aspace};
-use kernel_elf_parser::{AuxvEntry, ELFParser, app_stack_region};
+use kernel_elf_parser::{app_stack_region, AuxvEntry, AuxvType, ELFParser};
 use memory_addr::{MemoryAddr, PAGE_SIZE_4K, VirtAddr};
 use xmas_elf::{ElfFile, program::SegmentData};
+
+use crate::mapping_vdso_uspace;
 
 /// Creates a new empty user address space.
 pub fn new_user_aspace_empty() -> AxResult<AddrSpace> {
@@ -54,7 +56,7 @@ pub fn map_trampoline(aspace: &mut AddrSpace) -> AxResult {
 ///
 /// # Returns
 /// - The entry point of the user app.
-fn map_elf(uspace: &mut AddrSpace, elf: &ElfFile) -> AxResult<(VirtAddr, [AuxvEntry; 16])> {
+fn map_elf(uspace: &mut AddrSpace, elf: &ElfFile) -> AxResult<(VirtAddr, [AuxvEntry; 17])> {
     let uspace_base = uspace.base().as_usize();
     let elf_parser = ELFParser::new(
         elf,
@@ -91,10 +93,12 @@ fn map_elf(uspace: &mut AddrSpace, elf: &ElfFile) -> AxResult<(VirtAddr, [AuxvEn
         // TDOO: flush the I-cache
     }
 
-    Ok((
-        elf_parser.entry().into(),
-        elf_parser.auxv_vector(PAGE_SIZE_4K),
-    ))
+    let vdso_elf_addr = mapping_vdso_uspace(uspace)?;
+    let mut auxv_vector: [AuxvEntry; 17] = [AuxvEntry::new(AuxvType::NULL, 0); 17];
+    auxv_vector[..16].copy_from_slice(&elf_parser.auxv_vector(PAGE_SIZE_4K));
+    auxv_vector[16] = AuxvEntry::new(AuxvType::SYSINFO_EHDR, vdso_elf_addr);
+
+    Ok((elf_parser.entry().into(), auxv_vector))
 }
 
 /// Load the user app to the user address space.

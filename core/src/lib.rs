@@ -12,3 +12,6 @@ pub mod futex;
 pub mod mm;
 pub mod task;
 mod time;
+
+pub mod vdso;
+pub use vdso::*;
