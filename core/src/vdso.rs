@@ -1,13 +1,14 @@
 use core::{alloc::GlobalAlloc, arch::global_asm, slice};
 
+use alloc::boxed::Box;
 use axalloc::GlobalPage;
 use axerrno::{AxError, AxResult};
 use axhal::{
-    mem::{phys_to_virt, virt_to_phys},
-    paging::{MappingFlags, PageSize},
+    trap::{IRQ, register_trap_handler}, mem::{phys_to_virt, virt_to_phys}, paging::{MappingFlags, PageSize}, time::{current_ticks, monotonic_time, wall_time, TimeValue, TIMER_IRQ_NUM}
 };
-use axmm::{AddrSpace, kernel_aspace};
+use axmm::AddrSpace;
 use axsync::spin::SpinNoIrq;
+use linux_raw_sys::general::{CLOCK_MONOTONIC, CLOCK_REALTIME};
 use memory_addr::{PhysAddr, VirtAddrRange, va};
 use spin::Lazy;
 
@@ -42,6 +43,16 @@ vdso_end:
 unsafe extern "C" {
     fn vdso_start();
     fn vdso_end();
+}
+
+
+#[register_trap_handler(IRQ)]
+fn update_vdso_with_irq(irq_num: usize) -> bool {
+    if irq_num == TIMER_IRQ_NUM {
+        vdso_info().lock().update();
+    }
+
+    true
 }
 
 fn vdso_text_start() -> usize {
@@ -97,6 +108,7 @@ pub fn vdso_info() -> &'static SpinNoIrq<Vdso> {
 }
 
 struct Vdso {
+    data: &'static mut VdsoData,
     vdso_data_paddr: PhysAddr,
     vdso_text_paddr: PhysAddr,
     frame: GlobalPage,
@@ -122,16 +134,12 @@ impl Default for Vdso {
             vdso_data_paddr, vdso_text_paddr
         );
 
-        let data = VdsoData::default();
+        // init vdso data
+        let data_ptr: usize = phys_to_virt(vdso_data_paddr + 0x80).into();
+        let data = unsafe { &mut *(data_ptr as *mut VdsoData) };
+        data.init();
 
-        unsafe {
-            core::ptr::copy_nonoverlapping(
-                &data as *const VdsoData as *const u8,
-                phys_to_virt(vdso_data_paddr + 0x80).as_mut_ptr(),
-                size_of::<VdsoData>(),
-            );
-        }
-
+        // init vdso text
         unsafe {
             core::ptr::copy_nonoverlapping(
                 vdso_text_start() as *const u8,
@@ -141,6 +149,7 @@ impl Default for Vdso {
         }
 
         Self {
+            data,
             vdso_data_paddr,
             vdso_text_paddr,
             frame,
@@ -148,17 +157,24 @@ impl Default for Vdso {
     }
 }
 
+impl Vdso {
+    fn update(&mut self) {
+        debug!("update vdso data");
+        self.data.seq = 1;
+        self.data.last_cycles = current_ticks();
+
+        self.data.basetime[CLOCK_MONOTONIC as usize] = monotonic_time();
+        self.data.basetime[CLOCK_REALTIME as usize] = wall_time();
+
+        self.data.seq = 0;
+        // debug!("update = {:#?}", self.data);
+    }
+}
+
 const VDSO_BASES: usize = 12;
 
 #[repr(C)]
-#[derive(Debug, Default, Copy, Clone)]
-struct VdsoInstant {
-    secs: u64,
-    nanos_info: u64,
-}
-
-#[repr(C)]
-#[derive(Default)]
+#[derive(Default, Debug)]
 struct VdsoData {
     seq: u32,
 
@@ -167,10 +183,16 @@ struct VdsoData {
     mask: u64,
     mult: u32,
     shift: u32,
-    basetime: [VdsoInstant; VDSO_BASES],
+    basetime: [TimeValue; VDSO_BASES],
 
     tz_minuteswest: i32,
     tz_dsttime: i32,
     hrtimer_res: u32,
     __unused: u32,
+}
+
+impl VdsoData {
+    fn init(&mut self) {
+        self.clock_mode = 1;
+    }
 }
