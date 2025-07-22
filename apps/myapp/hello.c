@@ -5,7 +5,7 @@
 void test_sys() {
   struct timespec ts;
   int ret;
-  int clk_id = CLOCK_REALTIME; // 0
+  int clk_id = CLOCK_MONOTONIC; // 0
 
   asm volatile("movq $228, %%rax\n\t"   // SYS_clock_gettime
                "movq %[clk], %%rdi\n\t" // clock ID
