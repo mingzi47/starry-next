@@ -9,7 +9,7 @@ use axhal::{
     paging::{MappingFlags, PageSize},
 };
 use axmm::{AddrSpace, kernel_aspace};
-use kernel_elf_parser::{app_stack_region, AuxvEntry, AuxvType, ELFParser};
+use kernel_elf_parser::{AuxvEntry, AuxvType, ELFParser, app_stack_region};
 use memory_addr::{MemoryAddr, PAGE_SIZE_4K, VirtAddr};
 use xmas_elf::{ElfFile, program::SegmentData};
 
@@ -56,7 +56,7 @@ pub fn map_trampoline(aspace: &mut AddrSpace) -> AxResult {
 ///
 /// # Returns
 /// - The entry point of the user app.
-fn map_elf(uspace: &mut AddrSpace, elf: &ElfFile) -> AxResult<(VirtAddr, [AuxvEntry; 17])> {
+fn map_elf(uspace: &mut AddrSpace, elf: &ElfFile) -> AxResult<(VirtAddr, Vec<AuxvEntry>)> {
     let uspace_base = uspace.base().as_usize();
     let elf_parser = ELFParser::new(
         elf,
@@ -94,9 +94,9 @@ fn map_elf(uspace: &mut AddrSpace, elf: &ElfFile) -> AxResult<(VirtAddr, [AuxvEn
     }
 
     let vdso_elf_addr = mapping_vdso_uspace(uspace)?;
-    let mut auxv_vector: [AuxvEntry; 17] = [AuxvEntry::new(AuxvType::NULL, 0); 17];
-    auxv_vector[..16].copy_from_slice(&elf_parser.auxv_vector(PAGE_SIZE_4K));
-    auxv_vector[16] = AuxvEntry::new(AuxvType::SYSINFO_EHDR, vdso_elf_addr);
+
+    let mut auxv_vector = elf_parser.auxv_vector(PAGE_SIZE_4K).to_vec();
+    auxv_vector.push(AuxvEntry::new(AuxvType::SYSINFO_EHDR, vdso_elf_addr));
 
     Ok((elf_parser.entry().into(), auxv_vector))
 }

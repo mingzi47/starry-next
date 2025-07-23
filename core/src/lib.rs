@@ -15,3 +15,5 @@ mod time;
 
 pub mod vdso;
 pub use vdso::*;
+
+pub mod vdso_arch;

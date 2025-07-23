@@ -1,7 +1,5 @@
-# CC = $(ARCH)-linux-musl-gcc
-
-CC = ~/Downloads/musl-test/bin/x86_64-linux-musl-gcc
-CFLAGS = -static -g
+CC = $(ARCH)-linux-musl-gcc
+CFLAGS = -static
 
 TARGET_DIR = build/$(ARCH)
 TARGET = $(TARGET_DIR)/hello
